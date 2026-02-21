@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChannelFriends – KnightGuard Addon Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --gold:        #d4a017;
+  --gold-bright: #f5cc50;
+  --gold-dim:    #7a5c0e;
+  --gold-deep:   #3d2c04;
+  --crimson:     #8b1a1a;
+  --crimson-dark:#3a0505;
+  --stone:       #0e0c09;
+  --stone-mid:   #161208;
+  --stone-light: #1e1a0f;
+  --stone-pale:  #2a2415;
+  --parchment:   #c8b888;
+  --parchment-dim:#7a6e52;
+  --text:        #d0c49a;
+  --text-bright: #ede0b8;
+  --text-dim:    #6e6448;
+  --green:       #4ed44e;
+  --blue-light:  #6ad4f5;
+  --rune:        rgba(212,160,23,0.06);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--stone);
+  color: var(--text);
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 17.5px;
+  line-height: 1.7;
+  min-height: 100vh;
+  overflow-x: hidden;
+  cursor: default;
+}
+
+/* ── STONE TEXTURE BACKGROUND ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg,   transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
+    repeating-linear-gradient(90deg,  transparent, transparent 2px, rgba(0,0,0,0.02) 2px, rgba(0,0,0,0.02) 4px),
+    radial-gradient(ellipse at 15% 10%, rgba(139,90,10,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 90%, rgba(80,10,10,0.08) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 50%, rgba(30,20,5,0.4) 0%, transparent 80%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ── SCROLL ANIMATION ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes glowPulse {
+  0%, 100% { text-shadow: 0 0 30px rgba(212,160,23,0.3), 0 2px 6px rgba(0,0,0,0.9); }
+  50%       { text-shadow: 0 0 55px rgba(212,160,23,0.6), 0 2px 6px rgba(0,0,0,0.9); }
+}
+@keyframes borderGlow {
+  0%, 100% { box-shadow: 0 0 12px rgba(212,160,23,0.15), inset 0 0 30px rgba(0,0,0,0.5); }
+  50%       { box-shadow: 0 0 28px rgba(212,160,23,0.3),  inset 0 0 30px rgba(0,0,0,0.5); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.reveal {
+  opacity: 0; animation: fadeUp 0.6s ease forwards;
+}
+.reveal-1 { animation-delay: 0.1s; }
+.reveal-2 { animation-delay: 0.2s; }
+.reveal-3 { animation-delay: 0.3s; }
+.reveal-4 { animation-delay: 0.4s; }
+.reveal-5 { animation-delay: 0.5s; }
+.reveal-6 { animation-delay: 0.6s; }
+
+/* ── HEADER ── */
+header {
+  position: relative;
+  padding: 0;
+  text-align: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--gold-dim);
+}
+
+.header-bg {
+  background: linear-gradient(180deg, #0a0600 0%, #130e05 40%, var(--stone) 100%);
+  padding: 70px 40px 60px;
+  position: relative;
+}
+
+.header-bg::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(212,160,23,0.18) 0%, transparent 60%),
+    radial-gradient(ellipse at 20% 100%, rgba(139,26,26,0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(139,26,26,0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* decorative corner runes */
+.header-bg::after {
+  content: '✦';
+  position: absolute;
+  top: 20px; left: 50%;
+  transform: translateX(-50%);
+  color: var(--gold-dim);
+  font-size: 12px;
+  letter-spacing: 40px;
+  opacity: 0.5;
+}
+
+.header-inner { position: relative; z-index: 1; }
+
+.guild-tag {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: 'Cinzel', serif; font-size: 10px; font-weight: 600;
+  letter-spacing: 5px; text-transform: uppercase;
+  color: var(--gold-dim); margin-bottom: 22px;
+}
+.guild-tag::before, .guild-tag::after {
+  content: ''; flex: 1; height: 1px;
+  width: 40px; background: linear-gradient(90deg, transparent, var(--gold-dim));
+}
+.guild-tag::after { transform: scaleX(-1); }
+
+h1 {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: clamp(30px, 5.5vw, 58px);
+  font-weight: 700;
+  color: var(--gold-bright);
+  animation: glowPulse 4s ease-in-out infinite;
+  letter-spacing: 3px;
+  line-height: 1.1;
+  margin-bottom: 12px;
+}
+
+.header-subtitle {
+  font-family: 'EB Garamond', serif;
+  font-style: italic; font-size: 18px;
+  color: var(--parchment-dim);
+  margin-bottom: 30px;
+}
+
+.version-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(212,160,23,0.07);
+  border: 1px solid rgba(212,160,23,0.25);
+  border-radius: 30px; padding: 6px 20px;
+  font-family: 'Cinzel', serif; font-size: 11px;
+  color: var(--gold-dim); letter-spacing: 1px;
+}
+.pulse-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: borderGlow 2s ease-in-out infinite;
+}
+
+/* horizontal gold rule with ornament */
+.ornament-rule {
+  display: flex; align-items: center; gap: 0;
+  margin: 0;
+  height: 32px;
+  background: linear-gradient(90deg,
+    var(--crimson-dark) 0%, #2a1505 30%, #2a1505 70%, var(--crimson-dark) 100%);
+  border-top: 1px solid var(--gold-dim);
+  border-bottom: 1px solid var(--gold-dim);
+  overflow: hidden;
+  position: relative;
+}
+.ornament-rule::before {
+  content: '✦  ·  ·  ✦  ·  ·  ✦  ·  ·  ✦  ·  ·  ✦  ·  ·  ✦  ·  ·  ✦  ·  ·  ✦  ·  ·  ✦';
+  position: absolute; width: 100%; text-align: center;
+  font-size: 9px; letter-spacing: 8px;
+  color: var(--gold-dim); opacity: 0.6;
+}
+
+/* ── MAIN LAYOUT ── */
+.container {
+  max-width: 1000px; margin: 0 auto;
+  padding: 0 28px; position: relative; z-index: 1;
+}
+
+/* ── SECTION HEADERS ── */
+.section { padding: 52px 0 36px; position: relative; }
+.section + .section {
+  border-top: 1px solid rgba(61,44,4,0.5);
+}
+.section + .section::before {
+  content: '';
+  position: absolute; top: -1px; left: 50%;
+  transform: translateX(-50%);
+  width: 60px; height: 1px;
+  background: var(--gold-dim);
+}
+
+.section-head {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 28px;
+}
+
+.s-emblem {
+  width: 44px; height: 44px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--crimson-dark) 0%, var(--crimson) 100%);
+  border: 1px solid var(--gold-dim);
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.6), inset 0 1px 0 rgba(212,160,23,0.1);
+  position: relative;
+}
+.s-emblem::after {
+  content: '';
+  position: absolute; inset: 2px;
+  border: 1px solid rgba(212,160,23,0.1);
+  border-radius: 2px; pointer-events: none;
+}
+
+.section-title-group { display: flex; flex-direction: column; gap: 2px; }
+.section-eyebrow {
+  font-family: 'Cinzel', serif; font-size: 9px; font-weight: 600;
+  letter-spacing: 4px; text-transform: uppercase; color: var(--gold-dim);
+}
+h2 {
+  font-family: 'Cinzel', serif; font-size: 22px; font-weight: 600;
+  color: var(--gold); letter-spacing: 1px;
+}
+h3 {
+  font-family: 'Cinzel', serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: var(--gold-dim); margin: 28px 0 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+h3::after { content: ''; flex: 1; height: 1px; background: rgba(61,44,4,0.7); }
+
+p { margin-bottom: 14px; color: var(--text); }
+
+/* ── SHOWCASE — screenshot + callouts ── */
+.showcase {
+  display: grid;
+  grid-template-columns: 205px 1fr;
+  gap: 32px; align-items: start;
+}
+@media (max-width: 680px) { .showcase { grid-template-columns: 1fr; } }
+
+.screenshot-frame {
+  position: relative;
+  padding: 6px;
+  background: linear-gradient(135deg, var(--gold-deep), var(--stone-pale), var(--gold-deep));
+  border-radius: 5px;
+  animation: borderGlow 4s ease-in-out infinite;
+}
+.screenshot-frame::before {
+  content: ''; position: absolute;
+  inset: 3px; border: 1px solid rgba(212,160,23,0.2);
+  border-radius: 3px; pointer-events: none; z-index: 2;
+}
+.screenshot-frame img {
+  width: 100%; display: block;
+  border-radius: 2px;
+  filter: brightness(1.05) contrast(1.02);
+}
+.screenshot-caption {
+  text-align: center; margin-top: 10px;
+  font-size: 12px; font-style: italic; color: var(--text-dim);
+}
+
+.callouts { display: flex; flex-direction: column; gap: 10px; }
+
+.callout {
+  display: flex; gap: 13px;
+  background: linear-gradient(90deg, var(--stone-light) 0%, var(--stone-mid) 100%);
+  border: 1px solid rgba(61,44,4,0.8);
+  border-left: 3px solid var(--gold-dim);
+  border-radius: 0 3px 3px 0;
+  padding: 12px 15px;
+  transition: border-left-color 0.2s, background 0.2s;
+  cursor: default;
+}
+.callout:hover {
+  border-left-color: var(--gold);
+  background: linear-gradient(90deg, var(--stone-pale) 0%, var(--stone-light) 100%);
+}
+
+.callout-key {
+  font-family: 'Cinzel', serif; font-size: 9px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--gold); background: rgba(212,160,23,0.07);
+  border: 1px solid rgba(212,160,23,0.2);
+  border-radius: 2px; padding: 3px 9px;
+  white-space: nowrap; align-self: flex-start;
+  margin-top: 2px; flex-shrink: 0; min-width: 82px; text-align: center;
+}
+.callout-body { font-size: 15px; line-height: 1.55; }
+.callout-body strong { color: var(--text-bright); font-weight: 500; }
+.callout-body em { color: var(--blue-light); font-style: normal; }
+
+/* ── STATUS DOTS ── */
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; margin-right: 3px; }
+.dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.dot-grey  { background: #555; }
+
+/* ── CLASS GRID ── */
+.class-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px,1fr));
+  gap: 7px; margin-top: 14px;
+}
+.class-chip {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--stone-light); border: 1px solid rgba(61,44,4,0.8);
+  border-radius: 3px; padding: 9px 13px;
+  font-size: 15px; transition: background 0.15s;
+}
+.class-chip:hover { background: var(--stone-pale); }
+.class-swatch { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── CONTROLS GRID ── */
+.ctrl-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px; margin-top: 12px;
+}
+@media (max-width: 580px) { .ctrl-grid { grid-template-columns: 1fr; } }
+
+.ctrl {
+  background: var(--stone-light); border: 1px solid rgba(61,44,4,0.8);
+  border-radius: 3px; padding: 13px 16px;
+  transition: background 0.15s;
+}
+.ctrl:hover { background: var(--stone-pale); }
+.ctrl-label {
+  font-family: 'Cinzel', serif; font-size: 11px; color: var(--gold);
+  margin-bottom: 5px; display: flex; align-items: center; gap: 7px;
+}
+.kbd {
+  background: var(--stone-pale); border: 1px solid var(--gold-dim);
+  border-bottom: 2px solid var(--gold-dim);
+  border-radius: 3px; padding: 1px 8px;
+  font-size: 11px; color: var(--gold-bright); font-family: monospace;
+}
+.ctrl-desc { font-size: 14px; color: var(--text-dim); line-height: 1.45; }
+
+/* ── SLASH COMMANDS ── */
+.cmd-list { display: flex; flex-direction: column; gap: 7px; margin-top: 14px; }
+.cmd-row {
+  display: flex; align-items: baseline; gap: 16px;
+  background: var(--stone-light); border: 1px solid rgba(61,44,4,0.8);
+  border-radius: 3px; padding: 11px 16px;
+  transition: background 0.15s;
+}
+.cmd-row:hover { background: var(--stone-pale); }
+.cmd-code {
+  font-family: 'Courier New', monospace; font-size: 13px;
+  color: var(--blue-light); min-width: 185px; flex-shrink: 0;
+}
+.cmd-desc { font-size: 15px; color: var(--text-dim); }
+
+/* ── INSTALL STEPS ── */
+.steps { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+.step {
+  display: flex; gap: 15px; align-items: flex-start;
+  background: var(--stone-light); border: 1px solid rgba(61,44,4,0.8);
+  border-radius: 3px; padding: 13px 16px;
+  transition: background 0.15s;
+}
+.step:hover { background: var(--stone-pale); }
+.step-num {
+  font-family: 'Cinzel', serif; font-size: 13px; font-weight: 700;
+  color: var(--gold); background: rgba(212,160,23,0.07);
+  border: 1px solid rgba(212,160,23,0.25); border-radius: 50%;
+  width: 30px; height: 30px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.step-body { font-size: 15px; padding-top: 4px; line-height: 1.55; }
+
+.path-box {
+  font-family: 'Courier New', monospace; font-size: 13px;
+  color: var(--gold-dim); background: var(--stone-mid);
+  border: 1px solid rgba(61,44,4,0.8);
+  border-left: 3px solid var(--gold-dim);
+  border-radius: 0 3px 3px 0;
+  padding: 9px 14px; display: block;
+  margin: 12px 0; word-break: break-all;
+}
+
+c, code {
+  font-family: 'Courier New', monospace; font-size: 13px;
+  color: #aaddff; background: var(--stone-mid);
+  border: 1px solid rgba(61,44,4,0.8); border-radius: 3px;
+  padding: 1px 6px;
+}
+
+/* ── NOTICE BOXES ── */
+.notice {
+  display: flex; gap: 13px;
+  border-radius: 3px; padding: 13px 16px; margin-top: 13px;
+  font-size: 15px; line-height: 1.55;
+}
+.notice-warn {
+  background: rgba(100,20,20,0.2); border: 1px solid rgba(139,26,26,0.4);
+}
+.notice-info {
+  background: rgba(20,40,80,0.2); border: 1px solid rgba(40,80,140,0.35);
+}
+.notice-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.notice-text { color: #ddbba0; }
+.notice-info .notice-text { color: #99c4dd; }
+
+/* ── FOOTER ── */
+footer {
+  position: relative; z-index: 1;
+  padding: 36px 28px; text-align: center;
+  border-top: 1px solid var(--gold-dim);
+  background: linear-gradient(0deg, #050300 0%, var(--stone) 100%);
+}
+.footer-ornament {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 11px; letter-spacing: 6px;
+  color: var(--gold-dim); margin-bottom: 8px;
+}
+.footer-text { font-size: 13px; font-style: italic; color: var(--text-dim); }
+.footer-text strong { color: var(--gold-dim); font-style: normal; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ HEADER ═══════════════ -->
+<header>
+  <div class="header-bg">
+    <div class="header-inner">
+      <div class="guild-tag reveal reveal-1">Turtle WoW · Classic 1.12 · KnightGuard Guild</div>
+      <h1 class="reveal reveal-2">Channel Friends</h1>
+      <p class="header-subtitle reveal reveal-3">A persistent companion list for the KnightGuard channel</p>
+      <span class="version-pill reveal reveal-4">
+        <span class="pulse-dot"></span>
+        Version 1.0 &nbsp;·&nbsp; Turtle WoW 1.12
+      </span>
+    </div>
+  </div>
+  <div class="ornament-rule"></div>
+</header>
+
+<div class="container">
+
+  <!-- ═══ OVERVIEW ═══ -->
+  <section class="section">
+    <div class="section-head reveal reveal-1">
+      <div class="s-emblem">⚔️</div>
+      <div class="section-title-group">
+        <span class="section-eyebrow">Overview</span>
+        <h2>What It Does</h2>
+      </div>
+    </div>
+
+    <div class="showcase reveal reveal-2">
+      <div>
+        <div class="screenshot-frame">
+          <img src="cf_screenshot.png" alt="ChannelFriends in-game interface">
+        </div>
+        <p class="screenshot-caption">Live in-game — class colors,<br>zones &amp; saved status visible</p>
+      </div>
+      <div class="callouts">
+        <div class="callout">
+          <span class="callout-key">Channel</span>
+          <div class="callout-body"><strong>KnightGuard</strong> is the dedicated channel. Hit <strong>Join</strong> on a fresh character and the window opens, joins, sets chat color, and refreshes — all automatically.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-key">Class Color</span>
+          <div class="callout-body">Each name is colored by <strong>class</strong>, learned from your guild roster and friends list. White means unknown class — it builds up as more guildmates appear.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-key">Zone</span>
+          <div class="callout-body">Small grey text below each name shows <strong>current location</strong>. Refreshed every time you open the window. Requires them to be on your friends list or in your guild.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-key">Online Status</span>
+          <div class="callout-body"><span class="dot dot-green"></span><strong>Green dot</strong> — currently in the channel. <span class="dot dot-grey"></span><strong>Grey dot</strong> — saved to your list but not currently visible in channel.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-key">Saved List</span>
+          <div class="callout-body"><strong>[saved]</strong> players persist between sessions and logins. <strong>[+save]</strong> means they're in channel right now but not yet on your list.</div>
+        </div>
+        <div class="callout">
+          <span class="callout-key">Chat Color</span>
+          <div class="callout-body">KnightGuard messages display in <em>light blue</em> automatically. Reapplied after every zone change since 1.12 resets chat colours on transitions.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CONTROLS ═══ -->
+  <section class="section">
+    <div class="section-head reveal reveal-1">
+      <div class="s-emblem">🖱️</div>
+      <div class="section-title-group">
+        <span class="section-eyebrow">Interaction</span>
+        <h2>Controls</h2>
+      </div>
+    </div>
+
+    <h3>Clicking a Player Row</h3>
+    <div class="ctrl-grid reveal reveal-2">
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">Left Click</span></div>
+        <div class="ctrl-desc">Target the player by name if they are nearby</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">Right Click</span></div>
+        <div class="ctrl-desc">Open a whisper to that player in your chat box</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">Shift + Click</span></div>
+        <div class="ctrl-desc">Save to your list — or remove them if already saved</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">Ctrl + Click</span></div>
+        <div class="ctrl-desc">Invite the player to your group</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">Mouse Wheel</span></div>
+        <div class="ctrl-desc">Scroll up and down through the member list</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">Hover</span></div>
+        <div class="ctrl-desc">Tooltip appears showing all available click actions</div>
+      </div>
+    </div>
+
+    <h3>Window Buttons</h3>
+    <div class="ctrl-grid reveal reveal-3">
+      <div class="ctrl">
+        <div class="ctrl-label">Join</div>
+        <div class="ctrl-desc">Join KnightGuard, set chat color to light blue, auto-refresh list</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label">Refresh</div>
+        <div class="ctrl-desc">Re-query the channel member list from the server</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label">Add All From Channel</div>
+        <div class="ctrl-desc">Save every currently visible member to your list in one click</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label">Clear All</div>
+        <div class="ctrl-desc">Remove all saved players — a confirmation dialog appears first</div>
+      </div>
+    </div>
+
+    <h3>Opening the Window</h3>
+    <div class="ctrl-grid reveal reveal-4">
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">KG Button</span></div>
+        <div class="ctrl-desc">Floating draggable badge — position saved between sessions. Click to toggle window.</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">Minimap Icon</span></div>
+        <div class="ctrl-desc">Gold KG icon on the minimap border ring — click to toggle</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-label"><span class="kbd">/cf</span></div>
+        <div class="ctrl-desc">Slash command — toggles the window from anywhere</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SLASH COMMANDS ═══ -->
+  <section class="section">
+    <div class="section-head reveal reveal-1">
+      <div class="s-emblem">💬</div>
+      <div class="section-title-group">
+        <span class="section-eyebrow">Chat</span>
+        <h2>Slash Commands</h2>
+      </div>
+    </div>
+    <div class="cmd-list reveal reveal-2">
+      <div class="cmd-row"><span class="cmd-code">/cf</span><span class="cmd-desc">Open or close the Channel Friends window</span></div>
+      <div class="cmd-row"><span class="cmd-code">/cf add Artheon</span><span class="cmd-desc">Manually save a player named Artheon to your list</span></div>
+      <div class="cmd-row"><span class="cmd-code">/cf rem Artheon</span><span class="cmd-desc">Remove Artheon from your saved list</span></div>
+      <div class="cmd-row"><span class="cmd-code">/cf list</span><span class="cmd-desc">Print your full saved list to the chat window</span></div>
+      <div class="cmd-row"><span class="cmd-code">/cf debug</span><span class="cmd-desc">Dump raw channel API output — useful for troubleshooting</span></div>
+    </div>
+  </section>
+
+  <!-- ═══ CLASS COLORS ═══ -->
+  <section class="section">
+    <div class="section-head reveal reveal-1">
+      <div class="s-emblem">🎨</div>
+      <div class="section-title-group">
+        <span class="section-eyebrow">Appearance</span>
+        <h2>Class Colors</h2>
+      </div>
+    </div>
+    <p class="reveal reveal-2">Names are colored by class using standard WoW class colors. The addon learns classes from your <strong>guild roster</strong> and <strong>friends list</strong> — the more overlap, the more colors you'll see. Unknown classes appear white.</p>
+    <div class="class-grid reveal reveal-3">
+      <div class="class-chip"><div class="class-swatch" style="background:#c79c6e"></div> Warrior</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#f58cba"></div> Paladin</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#abd473"></div> Hunter</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#fff569"></div> Rogue</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#ffffff;border:1px solid #444"></div> Priest</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#0070de"></div> Shaman</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#69ccf0"></div> Mage</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#9482c9"></div> Warlock</div>
+      <div class="class-chip"><div class="class-swatch" style="background:#ff7d0a"></div> Druid</div>
+    </div>
+  </section>
+
+  <!-- ═══ INSTALLATION ═══ -->
+  <section class="section">
+    <div class="section-head reveal reveal-1">
+      <div class="s-emblem">📦</div>
+      <div class="section-title-group">
+        <span class="section-eyebrow">Setup</span>
+        <h2>Installation</h2>
+      </div>
+    </div>
+    <p class="reveal reveal-2">Place the entire <code>ChannelFriends</code> folder inside your AddOns directory:</p>
+    <span class="path-box reveal reveal-2">…\TurtleWoW\Interface\AddOns\ChannelFriends\</span>
+    <ol class="steps reveal reveal-3">
+      <li class="step">
+        <span class="step-num">1</span>
+        <span class="step-body">Copy the <code>ChannelFriends</code> folder (containing <code>ChannelFriends.toc</code> and <code>ChannelFriends.lua</code>) into the AddOns directory shown above.</span>
+      </li>
+      <li class="step">
+        <span class="step-num">2</span>
+        <span class="step-body">Launch Turtle WoW. At the character select screen click <strong>AddOns</strong> and verify <strong>ChannelFriends ✓</strong> is checked and enabled.</span>
+      </li>
+      <li class="step">
+        <span class="step-num">3</span>
+        <span class="step-body">Log in to your character. You will see <em style="color:var(--blue-light);">"ChannelFriends loaded! Type /cf to open."</em> in your chat window.</span>
+      </li>
+      <li class="step">
+        <span class="step-num">4</span>
+        <span class="step-body">If this character is not yet in KnightGuard — open the window with <code>/cf</code> and click the <strong>Join</strong> button. The addon handles the rest.</span>
+      </li>
+      <li class="step">
+        <span class="step-num">5</span>
+        <span class="step-body">Hit <strong>Refresh</strong> to load the member list. Then <strong>Shift-click</strong> individual names to save them, or use <strong>Add All From Channel</strong> to save everyone at once.</span>
+      </li>
+    </ol>
+
+    <div class="notice notice-warn reveal reveal-4">
+      <span class="notice-icon">⚠️</span>
+      <span class="notice-text"><strong>Zone data limitation:</strong> Zone information is only available for players on your in-game friends list or in your guild. Channel-only members will show "Unknown zone" — this is a hard constraint of the 1.12 WoW API with no workaround.</span>
+    </div>
+    <div class="notice notice-info reveal reveal-5">
+      <span class="notice-icon">💾</span>
+      <span class="notice-text"><strong>Persistent data:</strong> Your saved list and KG button position are stored in <code>WTF\Account\…\SavedVariables\ChannelFriends.lua</code> and survive logouts, reloads, and patches.</span>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="footer-ornament">✦ &nbsp; ✦ &nbsp; ✦</div>
+  <p class="footer-text"><strong>ChannelFriends</strong> · Crafted for Turtle WoW Classic 1.12 · KnightGuard Guild</p>
+</footer>
+
+</body>
+</html>
