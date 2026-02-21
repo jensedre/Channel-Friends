@@ -1,0 +1,8 @@
+## Interface: 11200
+## Title: ChannelFriends
+## Notes: Builds a saveable friend list from your joined chat channels
+## Author: You
+## Version: 1.0
+## SavedVariables: ChannelFriendsDB
+
+ChannelFriends.lua
