@@ -31,8 +31,10 @@ local entryFrames     = {}
 -- Cache for player info — populated from friends list and guild roster.
 -- CF_classCache[name] = "WARRIOR" (uppercase English class name, persists session)
 -- CF_zoneCache[name]  = "Elwynn Forest" (refreshed each time we open the window)
-local CF_classCache = {}
-local CF_zoneCache  = {}
+local CF_classCache  = {}
+local CF_zoneCache   = {}
+local CF_friendsSet  = {}   -- CF_friendsSet[name] = true if on your friends list
+local CF_guildSet    = {}   -- CF_guildSet[name]   = true if in your guild
 
 -- Class colours matching the standard WoW class colours (r, g, b)
 local CF_CLASS_COLORS = {
@@ -50,10 +52,26 @@ local CF_CLASS_COLORS = {
 -- -------------------------------------------------------
 -- 3. CONSTANTS  – tweak these to change the look
 -- -------------------------------------------------------
-local WINDOW_W     = 280
-local WINDOW_H     = 500   -- taller to fit 2-line rows
-local ROW_HEIGHT   = 30    -- name line + zone line
-local MAX_VISIBLE  = 10
+local WINDOW_W      = 280
+local ROW_HEIGHT    = 30
+local MAX_VISIBLE   = 8    -- max rows before scrolling kicks in
+local MIN_VISIBLE   = 3    -- minimum rows always shown
+-- Fixed pixel height of everything below the list
+-- (divider + status + selectedLabel + 2x2 grid + clear btn + padding)
+local BOTTOM_H      = 130
+-- Fixed pixel height of everything above the list (title bar + channel header)
+local TOP_H         = 68
+
+local function CF_GetWindowHeight(numRows)
+    local rows = numRows
+    if rows < MIN_VISIBLE then rows = MIN_VISIBLE end
+    if rows > MAX_VISIBLE then rows = MAX_VISIBLE end
+    return TOP_H + (rows * ROW_HEIGHT) + 24 + BOTTOM_H
+end
+
+local CF_selectedPlayer = nil   -- name of the currently selected row
+-- Context menu frame declared early so row OnClick scripts can reference it at load time
+CF_ContextMenu = CreateFrame("Frame", "ChannelFriendsContextMenu", UIParent, "UIDropDownMenuTemplate")
 
 
 -- -------------------------------------------------------
@@ -66,14 +84,15 @@ local MAX_VISIBLE  = 10
 -- Scans the friends list and guild roster to populate class and zone caches.
 -- Call this on window open so zone data is fresh.
 local function CF_ScanPlayerInfo()
-    -- Scan friends list: GetFriendInfo returns name, level, class, area, connected
+    CF_friendsSet = {}
+    CF_guildSet   = {}
+
     local numFriends = GetNumFriends()
     for i = 1, numFriends do
         local name, level, class, area, connected = GetFriendInfo(i)
         if name then
+            CF_friendsSet[name] = true
             if class and class ~= "" and class ~= "Unknown" then
-                -- Friends list returns localised class names, store as-is
-                -- and map to our colour table via an English lookup below
                 CF_classCache[name] = class
             end
             if area and area ~= "" and area ~= "Unknown" then
@@ -82,14 +101,13 @@ local function CF_ScanPlayerInfo()
         end
     end
 
-    -- Scan guild roster: GetGuildRosterInfo returns name, rank, rankIndex,
-    -- level, class, zone, note, officernote, online, status
-    local numGuild = GetNumGuildMembers(true)  -- true = include offline
+    local numGuild = GetNumGuildMembers(true)
     if numGuild then
         for i = 1, numGuild do
             local name, rank, rankIndex, level, class, zone, note, officernote, online =
                 GetGuildRosterInfo(i)
             if name then
+                CF_guildSet[name] = true
                 if class and class ~= "" then
                     CF_classCache[name] = class
                 end
@@ -253,7 +271,7 @@ end
 -- Create the outer window frame.
 local f = CreateFrame("Frame", "ChannelFriendsFrame", UIParent)
 f:SetWidth(WINDOW_W)
-f:SetHeight(WINDOW_H)
+f:SetHeight(CF_GetWindowHeight(MIN_VISIBLE))
 f:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 f:SetBackdrop({
     bgFile   = "Interface\\DialogFrame\\UI-DialogBox-Background",
@@ -455,13 +473,14 @@ for i = 1, MAX_VISIBLE do
     row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 4, -(i-1) * ROW_HEIGHT)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 
-    -- Coloured dot: green = online, grey = offline
-    local dot = row:CreateTexture(nil, "OVERLAY")
-    dot:SetWidth(8)
-    dot:SetHeight(8)
-    dot:SetPoint("LEFT", row, "LEFT", 4, 0)
-    dot:SetTexture("Interface\\CHARACTERFRAME\\UI-StateIcon")
-    dot:SetTexCoord(0.125, 0.25, 0, 1)  -- use a simple square portion of the texture
+    -- Status dot: fontstring circle, green = online, grey = offline
+    local dot = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    dot:SetWidth(14)
+    dot:SetHeight(ROW_HEIGHT)
+    dot:SetPoint("LEFT", row, "LEFT", 2, 0)
+    dot:SetJustifyH("CENTER")
+    dot:SetJustifyV("MIDDLE")
+    dot:SetText("|cff555555o|r")
     row.dot = dot
 
     -- Player name (top line)
@@ -479,163 +498,291 @@ for i = 1, MAX_VISIBLE do
     zoneText:SetTextColor(0.6, 0.6, 0.6)
     row.zoneText = zoneText
 
-    -- Save/remove label on the right (not a button, just text — click the row)
-    local actionText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    actionText:SetPoint("RIGHT", row, "RIGHT", -4, 0)
-    actionText:SetJustifyH("RIGHT")
-    row.actionText = actionText
+    -- G / F badges on the right (guild / friends list membership)
+    local badgeText = row:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    badgeText:SetPoint("TOPRIGHT", row, "TOPRIGHT", -4, -3)
+    badgeText:SetJustifyH("RIGHT")
+    row.badgeText = badgeText
 
     -- Tooltip on hover
     row:SetScript("OnEnter", function()
         GameTooltip:SetOwner(this, "ANCHOR_RIGHT")
-        local tip = row.playerName or "?"
-        if row.isSaved then
-            tip = tip .. "\nLeft-click: Target\nRight-click: Whisper\nShift-click: Remove from saved\nCtrl-click: Invite to group"
-        else
-            tip = tip .. "\nLeft-click: Target\nRight-click: Whisper\nShift-click: Save\nCtrl-click: Invite to group"
-        end
-        GameTooltip:SetText(tip)
+        GameTooltip:SetText((row.playerName or "?") .. "\nLeft-click: Select\nRight-click: Actions menu")
         GameTooltip:Show()
     end)
-    row:SetScript("OnLeave", function()
-        GameTooltip:Hide()
-    end)
+    row:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    -- Left-click = target, Right-click = whisper, Shift-click = save/remove, Ctrl-click = invite
+    -- Left-click = select this player; Right-click = context menu
     row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     row:SetScript("OnClick", function()
         if not row.playerName then return end
         if arg1 == "RightButton" then
-            ChatFrame_OpenChat("/w " .. row.playerName .. " ")
-        elseif IsControlKeyDown() then
-            InviteByName(row.playerName)
-        elseif IsShiftKeyDown() then
-            if row.isSaved then
-                ChannelFriendsDB[row.playerName] = nil
-            else
-                ChannelFriendsDB[row.playerName] = true
-            end
-            ChannelFriends_RefreshList()
+            local name = row.playerName
+            -- Build context menu using UIDropDownMenu (guaranteed in 1.12)
+            UIDropDownMenu_Initialize(CF_ContextMenu, function()
+                local info = {}
+
+                info.text = name
+                info.isTitle = true
+                info.notCheckable = true
+                UIDropDownMenu_AddButton(info)
+
+                info = {}
+                info.text = "Whisper"
+                info.notCheckable = true
+                info.func = function()
+                    ChatFrame_OpenChat("/w " .. name .. " ")
+                end
+                UIDropDownMenu_AddButton(info)
+
+                info = {}
+                info.text = "Invite"
+                info.notCheckable = true
+                info.func = function()
+                    InviteByName(name)
+                end
+                UIDropDownMenu_AddButton(info)
+
+                info = {}
+                info.text = "Target"
+                info.notCheckable = true
+                info.func = function()
+                    TargetByName(name)
+                end
+                UIDropDownMenu_AddButton(info)
+
+                info = {}
+                info.text = "Cancel"
+                info.notCheckable = true
+                info.func = function()
+                    CloseDropDownMenus()
+                end
+                UIDropDownMenu_AddButton(info)
+            end, "MENU")
+            ToggleDropDownMenu(1, nil, CF_ContextMenu, "cursor", 0, 0)
         else
-            TargetByName(row.playerName)
+            -- Select this player
+            CF_selectedPlayer = row.playerName
+            CF_UpdateActionButtons()
+            ChannelFriends_RefreshList()
         end
     end)
 
     row:Hide()
-    row.dot:Hide()
+    row.dot:SetText("")
     row.zoneText:Hide()
     entryFrames[i] = row
 end
 
 
 -- -------------------------------------------------------
--- 8. STATUS / DIVIDER LINE  (drawn below the scroll list)
+-- 8. CONTEXT MENU FRAME (declared early near line 60)
 -- -------------------------------------------------------
 
+
+-- -------------------------------------------------------
+-- 9. STATUS / DIVIDER LINE
+-- -------------------------------------------------------
 local divider = f:CreateTexture(nil, "ARTWORK")
-divider:SetHeight(2)
+divider:SetHeight(1)
 divider:SetWidth(WINDOW_W - 30)
-divider:SetPoint("TOPLEFT", f, "TOPLEFT", 15, -(70 + MAX_VISIBLE * ROW_HEIGHT + 8))
+divider:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", -1, -6)
 divider:SetTexture("Interface\\Tooltips\\UI-Tooltip-Border")
 
 local statusText = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
--- Anchor from the BOTTOM so it always sits just above the buttons regardless of window size
-statusText:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 15, 44)
+statusText:SetPoint("TOPLEFT", listFrame, "BOTTOMLEFT", 0, -10)
 statusText:SetTextColor(0.7, 0.7, 0.7)
 
+-- Selected player label
+local selectedLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+selectedLabel:SetPoint("TOPLEFT", statusText, "BOTTOMLEFT", 0, -2)
+selectedLabel:SetTextColor(0.9, 0.8, 0.4)
+selectedLabel:SetText("")
+
 
 -- -------------------------------------------------------
--- 9. BOTTOM BUTTONS
+-- 10. ACTION BUTTON GRID  (2 x 2, friends-list style)
 -- -------------------------------------------------------
+local BTN_W   = (WINDOW_W - 38) / 2
+local BTN_H   = 22
+local BTN_GAP = 6
 
--- "Add all from channel" – saves every current channel member to the list.
-local addAllBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-addAllBtn:SetWidth(130)
-addAllBtn:SetHeight(24)
-addAllBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 15, 14)
-addAllBtn:SetText("Add All From Channel")
-addAllBtn:SetScript("OnClick", function()
-    if not selectedChannel then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff9900ChannelFriends:|r Please select a channel first.")
-        return
-    end
-    if table.getn(CF_members) == 0 then
-        DEFAULT_CHAT_FRAME:AddMessage("|cffff9900ChannelFriends:|r No members loaded yet — hit Refresh first.")
-        return
-    end
-    local added = 0
-    for _, name in ipairs(CF_members) do
-        if not ChannelFriendsDB[name] then
-            ChannelFriendsDB[name] = true
-            added = added + 1
-        end
-    end
-    DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00ChannelFriends:|r Added " .. added .. " players.")
+-- Helper: create a styled action button anchored below selectedLabel
+local function CF_MakeActionBtn(label, col, row_n)
+    local btn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    btn:SetWidth(BTN_W)
+    btn:SetHeight(BTN_H)
+    local xOff = (col == 1) and 15 or (15 + BTN_W + BTN_GAP)
+    -- row_n 1 = top row of grid, row_n 2 = bottom row
+    btn:SetPoint("TOPLEFT", selectedLabel, "BOTTOMLEFT",
+        xOff - 15,
+        -( (row_n - 1) * (BTN_H + BTN_GAP) + 6 ))
+    btn:SetText(label)
+    btn:Disable()
+    return btn
+end
+
+local btnAddFriend    = CF_MakeActionBtn("Add Friend",    1, 1)
+local btnSendMessage  = CF_MakeActionBtn("Send Message",  2, 1)
+local btnRemoveFriend = CF_MakeActionBtn("Remove Friend", 1, 2)
+local btnGroupInvite  = CF_MakeActionBtn("Group Invite",  2, 2)
+
+-- Wire up button actions
+btnAddFriend:SetScript("OnClick", function()
+    if not CF_selectedPlayer then return end
+    AddFriend(CF_selectedPlayer)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff00ccffChannelFriends:|r Added " .. CF_selectedPlayer .. " to friends.")
+    CF_ScanPlayerInfo()
+    CF_UpdateActionButtons()
     ChannelFriends_RefreshList()
 end)
 
--- "Clear All" – removes everyone from the saved list.
+btnSendMessage:SetScript("OnClick", function()
+    if not CF_selectedPlayer then return end
+    ChatFrame_OpenChat("/w " .. CF_selectedPlayer .. " ")
+end)
+
+btnRemoveFriend:SetScript("OnClick", function()
+    if not CF_selectedPlayer then return end
+    local name = CF_selectedPlayer
+    local numFriends = GetNumFriends()
+    for i = 1, numFriends do
+        local fname = GetFriendInfo(i)
+        if fname == name then
+            RemoveFriend(name)
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff9900ChannelFriends:|r Removed " .. name .. " from friends.")
+            CF_ScanPlayerInfo()
+            CF_UpdateActionButtons()
+            ChannelFriends_RefreshList()
+            return
+        end
+    end
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff4444ChannelFriends:|r " .. name .. " is not on your friends list.")
+end)
+
+btnGroupInvite:SetScript("OnClick", function()
+    if not CF_selectedPlayer then return end
+    InviteByName(CF_selectedPlayer)
+end)
+
+-- Updates button enabled/disabled state and label text based on selection + friends status
+function CF_UpdateActionButtons()
+    local name = CF_selectedPlayer
+    if not name then
+        btnAddFriend:Disable()
+        btnSendMessage:Disable()
+        btnRemoveFriend:Disable()
+        btnGroupInvite:Disable()
+        selectedLabel:SetText("")
+        return
+    end
+
+    selectedLabel:SetText("Selected: |cffffd700" .. name .. "|r")
+
+    local inFriends = CF_friendsSet and CF_friendsSet[name]
+    if inFriends then
+        btnAddFriend:Disable()
+        btnRemoveFriend:Enable()
+    else
+        btnAddFriend:Enable()
+        btnRemoveFriend:Disable()
+    end
+    btnSendMessage:Enable()
+    btnGroupInvite:Enable()
+end
+
+-- Initialise button state
+CF_UpdateActionButtons()
+
+-- -------------------------------------------------------
+-- 11. CLEAR ALL SAVED BUTTON (full width, below grid)
+-- -------------------------------------------------------
 local clearBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-clearBtn:SetWidth(90)
-clearBtn:SetHeight(24)
-clearBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -15, 14)
-clearBtn:SetText("Clear All")
+clearBtn:SetWidth(WINDOW_W - 30)
+clearBtn:SetHeight(BTN_H)
+clearBtn:SetPoint("TOPLEFT", selectedLabel, "BOTTOMLEFT", 0,
+    -( 2*(BTN_H + BTN_GAP) + 10 ))
+clearBtn:SetText("Clear All Saved")
 clearBtn:SetScript("OnClick", function()
     StaticPopupDialogs["CF_CONFIRM_CLEAR"] = {
-        text    = "Remove ALL players from your Channel Friends list?",
-        button1 = "Yes",
-        button2 = "No",
-        OnAccept = function()
-            ChannelFriendsDB = {}
+        text      = "Remove ALL players from your Channel Friends list?",
+        button1   = "Yes",
+        button2   = "No",
+        OnAccept  = function()
+            -- Keep position keys, clear player entries
+            local keep = {}
+            for k, v in pairs(ChannelFriendsDB) do
+                if string.sub(k, 1, 2) == "__" then keep[k] = v end
+            end
+            ChannelFriendsDB = keep
+            CF_selectedPlayer = nil
+            CF_UpdateActionButtons()
             ChannelFriends_RefreshList()
             DEFAULT_CHAT_FRAME:AddMessage("|cffff4444ChannelFriends:|r List cleared.")
         end,
-        timeout   = 0,
-        whileDead = false,
+        timeout      = 0,
+        whileDead    = false,
         hideOnEscape = true,
     }
     StaticPopup_Show("CF_CONFIRM_CLEAR")
 end)
 
 
+
 -- -------------------------------------------------------
--- 10. REFRESH FUNCTION
---     Populates the scroll list based on:
---       a) If a channel is selected: shows that channel's members.
---       b) Always shows your saved friends with online status.
+-- 12. REFRESH FUNCTION
 -- -------------------------------------------------------
 
 function ChannelFriends_RefreshList()
-    -- Ensure DB exists (first login before any saves).
     if not ChannelFriendsDB then ChannelFriendsDB = {} end
 
     local displayList = {}
 
     if selectedChannel then
-        -- Show the last fetched member list (populated by CF_RequestMembers).
+        -- Auto-save every member returned from the channel query
         for _, name in ipairs(CF_members) do
-            table.insert(displayList, {
-                name   = name,
-                saved  = ChannelFriendsDB[name] == true,
-                online = true,   -- they're in the channel response, so online
-            })
+            if string.sub(name, 1, 2) ~= "__" then
+                ChannelFriendsDB[name] = true
+            end
+        end
+
+        -- Online members first
+        local inChannel = {}
+        for _, name in ipairs(CF_members) do
+            inChannel[name] = true
+            table.insert(displayList, { name = name, online = true })
+        end
+        -- Then saved-but-offline members
+        local offlineList = {}
+        for name, v in pairs(ChannelFriendsDB) do
+            if v == true and not inChannel[name] and string.sub(name, 1, 2) ~= "__" then
+                table.insert(offlineList, { name = name, online = false })
+            end
+        end
+        table.sort(offlineList, function(a, b) return a.name < b.name end)
+        for _, entry in ipairs(offlineList) do
+            table.insert(displayList, entry)
         end
     else
-        -- No channel selected: show only saved friends with online check.
-        for name, _ in pairs(ChannelFriendsDB) do
-            table.insert(displayList, {
-                name   = name,
-                saved  = true,
-                online = false,   -- can't check without a channel reference
-            })
+        for name, v in pairs(ChannelFriendsDB) do
+            if v == true and string.sub(name, 1, 2) ~= "__" then
+                table.insert(displayList, { name = name, online = false })
+            end
         end
         table.sort(displayList, function(a, b) return a.name < b.name end)
     end
 
     local total = table.getn(displayList)
     CF_totalRows = total
+
+    -- Resize window to fit the list tightly (clamped between MIN and MAX visible)
+    local visRows = total
+    if visRows < MIN_VISIBLE then visRows = MIN_VISIBLE end
+    if visRows > MAX_VISIBLE then visRows = MAX_VISIBLE end
+    local newH = TOP_H + (visRows * ROW_HEIGHT) + 24 + BOTTOM_H
+    f:SetHeight(newH)
+    listFrame:SetHeight(visRows * ROW_HEIGHT)
     local offset = CF_scrollOffset
-    -- Clamp offset in case list shrank
     if offset > total - MAX_VISIBLE then
         CF_scrollOffset = math.max(0, total - MAX_VISIBLE)
         offset = CF_scrollOffset
@@ -648,14 +795,22 @@ function ChannelFriends_RefreshList()
 
         if data then
             row.playerName = data.name
-            row.isSaved    = data.saved
 
-            -- Name coloured purely by class, no tinting for saved status
+            -- Class colour (brighten if selected)
             local cr, cg, cb = CF_GetClassColor(data.name)
+            if data.name == CF_selectedPlayer then
+                -- Brighten selected row text toward white
+                cr = math.min(1, cr + 0.3)
+                cg = math.min(1, cg + 0.3)
+                cb = math.min(1, cb + 0.3)
+                row:LockHighlight()
+            else
+                row:UnlockHighlight()
+            end
             row.nameText:SetTextColor(cr, cg, cb)
             row.nameText:SetText(data.name)
 
-            -- Zone line
+            -- Zone
             local zone = CF_zoneCache[data.name]
             if zone then
                 row.zoneText:SetText(zone)
@@ -665,40 +820,47 @@ function ChannelFriends_RefreshList()
 
             -- Online dot
             if data.online then
-                row.dot:SetVertexColor(0, 1, 0)
+                row.dot:SetText("|cff00ee00o|r")
             else
-                row.dot:SetVertexColor(0.5, 0.5, 0.5)
+                row.dot:SetText("|cff555555o|r")
             end
 
-            -- Right side save status
-            if data.saved then
-                row.actionText:SetText("|cffaaaaaa[saved]|r")
-            else
-                row.actionText:SetText("|cff44ff44[+save]|r")
+            -- G / F badges
+            local badge = ""
+            if CF_guildSet[data.name]   then badge = "|cffffd700G|r" end
+            if CF_friendsSet[data.name] then
+                if badge ~= "" then badge = badge .. " " end
+                badge = badge .. "|cff44aaffF|r"
             end
+            row.badgeText:SetText(badge)
 
             row:Show()
-            row.dot:Show()
             row.zoneText:Show()
         else
             row:Hide()
-            row.dot:Hide()
+            row:UnlockHighlight()
+            row.dot:SetText("")
             row.nameText:SetText("")
-            row.actionText:SetText("")
+            row.badgeText:SetText("")
             row.zoneText:SetText("")
         end
     end
 
-    -- Update the count text at the bottom.
-    local savedCount = 0
-    for _ in pairs(ChannelFriendsDB) do savedCount = savedCount + 1 end
+    -- Status: "X online | Y saved | Channel"
+    local onlineCount = table.getn(CF_members)
+    local savedCount  = 0
+    for name, v in pairs(ChannelFriendsDB) do
+        if v == true and string.sub(name, 1, 2) ~= "__" then
+            savedCount = savedCount + 1
+        end
+    end
+
     if CF_pendingChannel then
         statusText:SetText("Requesting " .. CF_pendingChannel .. " list...")
     else
-        statusText:SetText(
-            total .. " shown  |  " .. savedCount .. " saved"
-            .. (selectedChannel and ("  |  " .. selectedChannel) or "")
-        )
+        local s = onlineCount .. " online  |  " .. savedCount .. " saved"
+        if selectedChannel then s = s .. "  |  " .. selectedChannel end
+        statusText:SetText(s)
     end
 end
 
