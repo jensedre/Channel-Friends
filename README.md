@@ -2,4 +2,5 @@ Download ZIP of souce code.
 
 Extract and copy ChannelFriends folder to 'Interface/AddOns' folder
 
-<img width="526" height="918" alt="cf_screenshot" src="https://github.com/user-attachments/assets/b6b3512a-ad1b-419d-b143-40a3e628d3af" />
+<img width="529" height="936" alt="image" src="https://github.com/user-attachments/assets/03a80118-cc6b-428f-98b8-df3d505842fc" />
+
